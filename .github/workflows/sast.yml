@@ -83,10 +83,10 @@ jobs:
       # ── Step 5: Send findings to Flask API ─────────────────
       # Runs send_results.py which reads findings.json and POSTs
       # the results to the Flask backend for storage and alerting.
-      # This step is SKIPPED if FLASK_API_URL secret is not set.
-      # Use continue-on-error so a backend outage doesn't fail CI.
+      # If FLASK_API_URL secret is not configured, the script exits 0
+      # gracefully with a warning — it will NOT fail the workflow.
+      # continue-on-error ensures a backend outage never blocks CI.
       - name: Send results to backend API
-        if: ${{ secrets.FLASK_API_URL != '' }}
         env:
           FLASK_API_URL: ${{ secrets.FLASK_API_URL }}
           COMMIT_SHA: ${{ github.sha }}
