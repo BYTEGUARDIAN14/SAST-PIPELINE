@@ -20,13 +20,15 @@ import requests
 
 def main():
     # ── Read environment variables ───────────────────────────
-    flask_api_url = os.getenv("FLASK_API_URL", "").strip()
-    commit_sha = os.getenv("COMMIT_SHA", "").strip()
-    branch = os.getenv("BRANCH", "").strip()
+    flask_api_url = (os.getenv("FLASK_API_URL") or "").strip()
+    commit_sha = (os.getenv("COMMIT_SHA") or "").strip()
+    branch = (os.getenv("BRANCH") or "").strip()
 
+    # FLASK_API_URL is required — exit gracefully if missing
     if not flask_api_url:
-        print("ERROR: FLASK_API_URL environment variable is not set.")
-        sys.exit(1)
+        print("WARNING: FLASK_API_URL environment variable is not set.")
+        print("Skipping result upload. Set the FLASK_API_URL secret in GitHub to enable.")
+        sys.exit(0)  # exit 0 so CI doesn't fail just because backend isn't configured
 
     if not commit_sha:
         print("WARNING: COMMIT_SHA not set — using 'unknown'.")
@@ -77,7 +79,7 @@ def main():
             response_json = response.json()
             print(f"Response body: {json.dumps(response_json, indent=2)}")
         except ValueError:
-            print(f"Response body (raw): {response.text}")
+            print(f"Response body (raw): {response.text[:500]}")
 
         if response.status_code >= 400:
             print(f"ERROR: API returned status {response.status_code}")
@@ -87,6 +89,8 @@ def main():
 
     except requests.exceptions.ConnectionError as exc:
         print(f"ERROR: Could not connect to {api_endpoint}: {exc}")
+        print("Is your Flask backend reachable from the internet?")
+        print("Use ngrok or a cloud host. See README for setup instructions.")
         sys.exit(1)
     except requests.exceptions.Timeout:
         print(f"ERROR: Request to {api_endpoint} timed out after 30 seconds.")

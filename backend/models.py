@@ -52,11 +52,13 @@ class Scan(Base):
     low_count = Column(Integer, default=0, nullable=False)
 
     # One-to-many: a scan has many findings
+    # lazy="select" means findings are only loaded when explicitly accessed
+    # (avoids N+1 queries when listing scans on the dashboard)
     findings = relationship(
         "Finding",
         back_populates="scan",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
     )
 
     def to_dict(self):
@@ -114,7 +116,12 @@ def init_db(database_url="sqlite:///findings.db"):
     Create the database engine, session factory, and all tables.
     Returns (engine, SessionLocal) tuple.
     """
-    engine = create_engine(database_url, echo=False)
+    engine = create_engine(
+        database_url,
+        echo=False,
+        # Required for SQLite to allow multi-threaded Flask use
+        connect_args={"check_same_thread": False} if "sqlite" in database_url else {},
+    )
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     return engine, SessionLocal

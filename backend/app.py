@@ -15,9 +15,9 @@ Endpoints:
 """
 
 import os
-import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
 import requests as http_requests
 from dotenv import load_dotenv
@@ -25,10 +25,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sqlalchemy import func, select
 
-from models import Base, Scan, Finding, init_db
+# ── Load .env from the directory where app.py lives ─────────
+# This ensures the correct .env is found regardless of where
+# the server is launched from (e.g. gunicorn from / vs cd backend)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR.parent / ".env")  # project root .env
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)  # backend/.env fallback
 
-# ── Load environment variables ───────────────────────────────
-load_dotenv()
+from models import Base, Scan, Finding, init_db
 
 # ── Configure logging ────────────────────────────────────────
 logging.basicConfig(
@@ -39,14 +43,18 @@ logger = logging.getLogger(__name__)
 
 # ── Initialize Flask app ─────────────────────────────────────
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-production")
 
 # ── CORS setup ───────────────────────────────────────────────
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000")
-CORS(app, origins=[o.strip() for o in cors_origins.split(",")])
+cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Database setup ───────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///findings.db")
+# Default to a path relative to this file so the DB is always
+# created inside backend/, not the CWD of whoever launches Flask.
+default_db = f"sqlite:///{BASE_DIR / 'findings.db'}"
+DATABASE_URL = os.getenv("DATABASE_URL", default_db)
 engine, SessionLocal = init_db(DATABASE_URL)
 
 # ── Severity mapping (Semgrep → our system) ──────────────────
@@ -57,9 +65,9 @@ SEVERITY_MAP = {
 }
 
 
-def map_severity(semgrep_severity):
+def map_severity(semgrep_severity: str) -> str:
     """Map a Semgrep severity string to our severity scheme."""
-    return SEVERITY_MAP.get(semgrep_severity.upper(), "LOW")
+    return SEVERITY_MAP.get((semgrep_severity or "").upper(), "LOW")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -120,14 +128,14 @@ def create_scan():
     """
     # Validate request content type
     if not request.is_json:
-        return jsonify({"error": "Request must be JSON"}), 400
+        return jsonify({"error": "Request must be application/json"}), 400
 
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error": "Invalid or missing JSON body"}), 400
 
-    commit_sha = data.get("commit_sha", "").strip()
-    branch = data.get("branch", "").strip()
+    commit_sha = (data.get("commit_sha") or "").strip()
+    branch = (data.get("branch") or "").strip()
     results = data.get("results", [])
 
     if not commit_sha:
@@ -137,29 +145,33 @@ def create_scan():
     if not isinstance(results, list):
         return jsonify({"error": "results must be an array"}), 400
 
-    # Count severities
+    # Count severities and build parsed findings list
     severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
     parsed_findings = []
 
     for item in results:
-        extra = item.get("extra", {})
+        if not isinstance(item, dict):
+            continue  # skip malformed entries
+
+        extra = item.get("extra", {}) or {}
         raw_severity = extra.get("severity", "INFO")
         mapped = map_severity(raw_severity)
         severity_counts[mapped] = severity_counts.get(mapped, 0) + 1
 
         # Extract CWE from metadata if available
-        metadata = extra.get("metadata", {})
+        metadata = extra.get("metadata", {}) or {}
         cwe_list = metadata.get("cwe", [])
-        cwe_str = cwe_list[0] if isinstance(cwe_list, list) and cwe_list else ""
-        if isinstance(cwe_list, str):
-            cwe_str = cwe_list
+        if isinstance(cwe_list, list):
+            cwe_str = cwe_list[0] if cwe_list else ""
+        else:
+            cwe_str = str(cwe_list) if cwe_list else ""
 
         parsed_findings.append({
             "severity": mapped,
-            "rule_id": item.get("check_id", "unknown"),
-            "file_path": item.get("path", "unknown"),
-            "line_number": item.get("start", {}).get("line", 0),
-            "message": extra.get("message", "No message provided"),
+            "rule_id": item.get("check_id") or "unknown",
+            "file_path": item.get("path") or "unknown",
+            "line_number": (item.get("start") or {}).get("line", 0),
+            "message": extra.get("message") or "No message provided",
             "cwe": cwe_str,
         })
 
@@ -195,7 +207,7 @@ def create_scan():
     except Exception as exc:
         session.rollback()
         logger.error(f"Database error: {exc}")
-        return jsonify({"error": "Failed to store scan results"}), 500
+        return jsonify({"error": "Failed to store scan results", "detail": str(exc)}), 500
     finally:
         session.close()
 
@@ -235,11 +247,11 @@ def get_findings():
       limit     — max results to return (default 100)
       offset    — pagination offset (default 0)
     """
-    severity = request.args.get("severity", "").strip().upper()
+    severity = (request.args.get("severity") or "").strip().upper()
     scan_id = request.args.get("scan_id", type=int)
-    branch = request.args.get("branch", "").strip()
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    branch = (request.args.get("branch") or "").strip()
+    limit = min(request.args.get("limit", 100, type=int), 500)  # cap at 500
+    offset = max(request.args.get("offset", 0, type=int), 0)
 
     session = SessionLocal()
     try:
@@ -250,11 +262,11 @@ def get_findings():
         if scan_id:
             stmt = stmt.where(Finding.scan_id == scan_id)
         if branch:
-            stmt = stmt.join(Scan).where(Scan.branch == branch)
+            stmt = stmt.join(Scan, Finding.scan_id == Scan.id).where(Scan.branch == branch)
 
         # Get total count before pagination
         count_stmt = select(func.count()).select_from(stmt.subquery())
-        total = session.execute(count_stmt).scalar()
+        total = session.execute(count_stmt).scalar() or 0
 
         # Apply pagination
         stmt = stmt.order_by(Finding.id.desc()).limit(limit).offset(offset)
@@ -266,8 +278,8 @@ def get_findings():
             "returned": len(findings),
         })
     except Exception as exc:
-        logger.error(f"Query error: {exc}")
-        return jsonify({"error": "Failed to query findings"}), 500
+        logger.error(f"Query error in /findings: {exc}")
+        return jsonify({"error": "Failed to query findings", "detail": str(exc)}), 500
     finally:
         session.close()
 
@@ -282,8 +294,8 @@ def get_scans():
       branch — filter by branch name
       limit  — max results to return (default 30)
     """
-    branch = request.args.get("branch", "").strip()
-    limit = request.args.get("limit", 30, type=int)
+    branch = (request.args.get("branch") or "").strip()
+    limit = min(request.args.get("limit", 30, type=int), 200)
 
     session = SessionLocal()
     try:
@@ -294,7 +306,7 @@ def get_scans():
 
         # Get total count
         count_stmt = select(func.count()).select_from(stmt.subquery())
-        total = session.execute(count_stmt).scalar()
+        total = session.execute(count_stmt).scalar() or 0
 
         # Apply ordering and limit
         stmt = stmt.order_by(Scan.timestamp.desc()).limit(limit)
@@ -305,8 +317,8 @@ def get_scans():
             "total": total,
         })
     except Exception as exc:
-        logger.error(f"Query error: {exc}")
-        return jsonify({"error": "Failed to query scans"}), 500
+        logger.error(f"Query error in /scans: {exc}")
+        return jsonify({"error": "Failed to query scans", "detail": str(exc)}), 500
     finally:
         session.close()
 
@@ -319,12 +331,10 @@ def get_stats():
     """
     session = SessionLocal()
     try:
-        # Total findings
         total_findings = session.execute(
             select(func.count(Finding.id))
         ).scalar() or 0
 
-        # Severity breakdowns
         critical = session.execute(
             select(func.count(Finding.id)).where(Finding.severity == "CRITICAL")
         ).scalar() or 0
@@ -369,7 +379,7 @@ def get_stats():
         })
     except Exception as exc:
         logger.error(f"Stats error: {exc}")
-        return jsonify({"error": "Failed to compute stats"}), 500
+        return jsonify({"error": "Failed to compute stats", "detail": str(exc)}), 500
     finally:
         session.close()
 
