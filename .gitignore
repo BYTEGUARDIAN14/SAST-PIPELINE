@@ -1,0 +1,33 @@
+# ═══════════════════════════════════════════════════════════════
+# SAST Pipeline — Git Ignore
+# ═══════════════════════════════════════════════════════════════
+
+# Environment files (contain secrets)
+.env
+
+# Database files
+findings.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node.js
+node_modules/
+dist/
+
+# Semgrep output
+findings.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
