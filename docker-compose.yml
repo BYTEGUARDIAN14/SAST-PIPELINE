@@ -1,0 +1,34 @@
+# ═══════════════════════════════════════════════════════════════
+# SAST Pipeline — Docker Compose
+# Author: Mohamed Adhnaan J M | BYTEAEGIS (byteaegis.in)
+#
+# Services:
+#   backend  — Flask API (port 5000)
+#   frontend — React Dashboard via nginx (port 3000)
+# ═══════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/findings.db:/app/findings.db
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

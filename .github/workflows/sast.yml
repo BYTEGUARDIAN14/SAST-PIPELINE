@@ -1,0 +1,101 @@
+# ═══════════════════════════════════════════════════════════════
+# SAST Pipeline — GitHub Actions Workflow
+# Author: Mohamed Adhnaan J M | BYTEAEGIS (byteaegis.in)
+# Repo  : BYTEGUARDIAN14/sast-pipeline
+# Reg   : 6176AC23UCS097
+#
+# This workflow runs Semgrep SAST scanning on every push to
+# the main branch and posts results to the Flask API backend.
+# ═══════════════════════════════════════════════════════════════
+
+name: SAST Pipeline — Semgrep Scan
+
+# ── Trigger on pushes to main and allow manual dispatch ──────
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sast-scan:
+    name: Run Semgrep SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Check out the repository code ──────────────
+      # This clones the repo so Semgrep can scan the source files.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Step 2: Set up Python 3.11 ────────────────────────
+      # Semgrep and the results sender script require Python.
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── Step 3: Install Semgrep and the requests library ──
+      # semgrep: the SAST scanner
+      # requests: used by send_results.py to POST findings
+      - name: Install dependencies
+        run: pip install semgrep requests
+
+      # ── Step 4: Run Semgrep with OWASP Top Ten rules ──────
+      # --config p/owasp-top-ten : use the OWASP Top 10 ruleset
+      # --json                   : output machine-readable JSON
+      # --output findings.json   : write results to file
+      # || true                  : don't fail the step even if
+      #                            Semgrep finds issues (we handle
+      #                            failure in a later step)
+      - name: Run Semgrep scan
+        run: semgrep --config p/owasp-top-ten --json --output findings.json . || true
+
+      # ── Step 5: Send findings to Flask API ─────────────────
+      # Runs send_results.py which reads findings.json and POSTs
+      # the results to the Flask backend for storage and alerting.
+      # Environment variables are loaded from GitHub Secrets and
+      # the built-in github context.
+      - name: Send results to backend API
+        env:
+          FLASK_API_URL: ${{ secrets.FLASK_API_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: python send_results.py
+
+      # ── Step 6: Fail workflow if CRITICAL findings exist ───
+      # Reads findings.json, counts ERROR-severity results
+      # (which map to CRITICAL in our system), and exits with
+      # code 1 to fail the workflow if any are found.
+      - name: Check for critical findings
+        run: |
+          python -c "
+          import json, sys
+
+          # Read the Semgrep findings file
+          try:
+              with open('findings.json', 'r') as f:
+                  data = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              print('No findings file found or invalid JSON — skipping check.')
+              sys.exit(0)
+
+          # Extract results array from Semgrep output
+          results = data.get('results', [])
+          print(f'Total findings: {len(results)}')
+
+          # Count ERROR-severity findings (these are CRITICAL)
+          critical = [r for r in results if r.get('extra', {}).get('severity', '').upper() == 'ERROR']
+          print(f'Critical (ERROR) findings: {len(critical)}')
+
+          if critical:
+              print('::warning::CRITICAL security findings detected!')
+              for finding in critical:
+                  rule = finding.get('check_id', 'unknown')
+                  path = finding.get('path', 'unknown')
+                  line = finding.get('start', {}).get('line', '?')
+                  print(f'  ✗ {rule} in {path}:{line}')
+              sys.exit(1)
+          else:
+              print('✓ No critical findings — pipeline passed.')
+          "
