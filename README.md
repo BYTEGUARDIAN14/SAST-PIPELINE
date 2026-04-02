@@ -901,7 +901,7 @@ Features planned for future versions:
 Contributions are welcome. Here is the workflow:
 
 1. Fork this repository
-1. Create a feature branch: `git checkout -b feature/your-feature-name`
+1. Create a feature branch: `git checkout -b feature/your-features-name`
 1. Make your changes and write tests where applicable
 1. Commit with a descriptive message: `git commit -m "feat: add PDF export endpoint"`
 1. Push to your fork: `git push origin feature/your-feature-name`
