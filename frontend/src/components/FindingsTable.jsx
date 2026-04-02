@@ -3,207 +3,104 @@
  * SAST Pipeline — FindingsTable Component
  * Author: Mohamed Adhnaan J M | BYTEAEGIS (byteaegis.in)
  *
- * Sortable, filterable table of security findings with severity
- * badges, column sorting, and client-side severity filtering.
+ * Sortable, filterable table of security findings.
+ * Follows the Refined Dark Enterprise aesthetic exactly.
  * ═══════════════════════════════════════════════════════════════
  */
 
 import React, { useState, useMemo } from "react";
 
-// ── Severity badge color map ────────────────────────────────
 const SEVERITY_COLORS = {
-  CRITICAL: { bg: "#f8514926", text: "#f85149", border: "#f8514940" },
-  HIGH:     { bg: "#d2992226", text: "#d29922", border: "#d2992240" },
-  MEDIUM:   { bg: "#58a6ff26", text: "#58a6ff", border: "#58a6ff40" },
-  LOW:      { bg: "#3fb95026", text: "#3fb950", border: "#3fb95040" },
+  CRITICAL: {
+    bg: "var(--red-badge-bg)",
+    text: "var(--red-badge-text)",
+    border: "var(--red-border)",
+  },
+  HIGH: {
+    bg: "var(--amber-badge-bg)",
+    text: "var(--amber-badge-text)",
+    border: "var(--amber-border)",
+  },
+  MEDIUM: {
+    bg: "var(--blue-badge-bg)",
+    text: "var(--blue-badge-text)",
+    border: "var(--blue-border)",
+  },
+  LOW: {
+    bg: "var(--green-badge-bg)",
+    text: "var(--green-badge-text)",
+    border: "var(--green-border)",
+  },
 };
 
 const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-
 const FILTER_OPTIONS = ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
-// ── Styles ──────────────────────────────────────────────────
-const styles = {
-  container: {
-    background: "linear-gradient(135deg, #161b22 0%, #1c2333 100%)",
-    border: "1px solid #30363d",
-    borderRadius: "12px",
-    padding: "24px",
-    marginBottom: "24px",
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "16px",
-    flexWrap: "wrap",
-    gap: "12px",
-  },
-  title: {
-    fontSize: "16px",
-    fontWeight: 600,
-    color: "#e6edf3",
-  },
-  filterGroup: {
-    display: "flex",
-    gap: "6px",
-    flexWrap: "wrap",
-  },
-  filterBtn: {
-    padding: "5px 14px",
-    fontSize: "12px",
-    fontWeight: 500,
-    border: "1px solid #30363d",
-    borderRadius: "20px",
-    background: "transparent",
-    color: "#8b949e",
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  filterBtnActive: {
-    background: "#58a6ff20",
-    color: "#58a6ff",
-    borderColor: "#58a6ff50",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "separate",
-    borderSpacing: 0,
-  },
-  th: {
-    textAlign: "left",
-    padding: "10px 14px",
-    fontSize: "12px",
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    color: "#8b949e",
-    borderBottom: "1px solid #30363d",
-    cursor: "pointer",
-    userSelect: "none",
-    whiteSpace: "nowrap",
-    transition: "color 0.15s ease",
-  },
-  thHover: {
-    color: "#e6edf3",
-  },
-  td: {
-    padding: "10px 14px",
-    fontSize: "13px",
-    color: "#c9d1d9",
-    borderBottom: "1px solid #21262d",
-    verticalAlign: "top",
-  },
-  row: {
-    transition: "background 0.15s ease",
-  },
-  rowHover: {
-    background: "#1c2333",
-  },
-  badge: {
-    display: "inline-block",
-    padding: "3px 10px",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: 600,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-  },
-  empty: {
-    textAlign: "center",
-    padding: "48px 16px",
-    color: "#8b949e",
-    fontSize: "14px",
-    fontStyle: "italic",
-  },
-  filePath: {
-    fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace",
-    fontSize: "12px",
-    color: "#58a6ff",
-  },
-  ruleId: {
-    fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace",
-    fontSize: "12px",
-    color: "#d2a8ff",
-  },
-  sortArrow: {
-    marginLeft: "4px",
-    fontSize: "10px",
-  },
-};
+const COLUMNS = [
+  { key: "severity", label: "SEVERITY", sortKey: "severity" },
+  { key: "file", label: "FILE", sortKey: "file_path" },
+  { key: "rule", label: "RULE", sortKey: "rule_id" },
+  { key: "message", label: "MESSAGE", sortKey: "message" },
+  { key: "cwe", label: "CWE", sortKey: "cwe" },
+];
 
-// ── Skeleton loading row ────────────────────────────────────
-const shimmerKeyframes = `
-@keyframes tableShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-`;
-
-function SkeletonRow() {
-  const skeletonCell = {
-    background: "linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%)",
-    backgroundSize: "200% 100%",
-    animation: "tableShimmer 1.5s ease-in-out infinite",
-    borderRadius: "4px",
-    height: "14px",
-  };
-
+function ShieldOutlineIcon({ size = 40, color = "var(--border-focus)" }) {
   return (
-    <tr>
-      <td style={styles.td}><div style={{ ...skeletonCell, width: "160px" }} /></td>
-      <td style={styles.td}><div style={{ ...skeletonCell, width: "140px" }} /></td>
-      <td style={styles.td}><div style={{ ...skeletonCell, width: "200px" }} /></td>
-      <td style={styles.td}><div style={{ ...skeletonCell, width: "60px" }} /></td>
-      <td style={styles.td}><div style={{ ...skeletonCell, width: "70px" }} /></td>
-    </tr>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ marginBottom: "16px" }}
+    >
+      <path
+        d="M12 2L3 7V12C3 17.25 6.75 22.13 12 23C17.25 22.13 21 17.25 21 12V7L12 2Z"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
   );
 }
 
-// ── Severity badge ──────────────────────────────────────────
 function SeverityBadge({ severity }) {
   const colorSet = SEVERITY_COLORS[severity] || SEVERITY_COLORS.LOW;
   return (
-    <span
-      style={{
-        ...styles.badge,
-        background: colorSet.bg,
-        color: colorSet.text,
-        border: `1px solid ${colorSet.border}`,
-      }}
-    >
-      {severity}
-    </span>
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <span
+        style={{
+          background: colorSet.bg,
+          color: colorSet.text,
+          border: `1px solid ${colorSet.border}`,
+          borderRadius: "4px",
+          padding: "3px 8px",
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 600,
+          fontSize: "10px",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+        }}
+      >
+        {severity}
+      </span>
+    </div>
   );
 }
-
-// ── Column definitions ──────────────────────────────────────
-const COLUMNS = [
-  { key: "file", label: "File", sortKey: "file_path" },
-  { key: "rule", label: "Rule ID", sortKey: "rule_id" },
-  { key: "message", label: "Message", sortKey: "message" },
-  { key: "cwe", label: "CWE", sortKey: "cwe" },
-  { key: "severity", label: "Severity", sortKey: "severity" },
-];
 
 export default function FindingsTable({ findings, loading }) {
   const [filter, setFilter] = useState("ALL");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [hoveredRow, setHoveredRow] = useState(null);
-  const [hoveredHeader, setHoveredHeader] = useState(null);
 
-  // ── Client-side severity filter ─────────────────────────
   const filteredFindings = useMemo(() => {
     if (!findings) return [];
     if (filter === "ALL") return findings;
     return findings.filter((f) => f.severity === filter);
   }, [findings, filter]);
 
-  // ── Client-side sorting ─────────────────────────────────
   const sortedFindings = useMemo(() => {
     if (!sortConfig.key) return filteredFindings;
 
@@ -229,7 +126,6 @@ export default function FindingsTable({ findings, loading }) {
     });
   }, [filteredFindings, sortConfig]);
 
-  // ── Handle column header click ──────────────────────────
   function handleSort(sortKey) {
     setSortConfig((prev) => ({
       key: sortKey,
@@ -237,62 +133,124 @@ export default function FindingsTable({ findings, loading }) {
     }));
   }
 
-  // ── Truncate long strings ───────────────────────────────
-  function truncate(str, maxLen = 80) {
+  function truncate(str, maxLen) {
     if (!str) return "";
     return str.length > maxLen ? str.slice(0, maxLen) + "…" : str;
   }
 
   return (
-    <div style={styles.container}>
-      <style>{shimmerKeyframes}</style>
-
-      {/* Header with title and filter pills */}
-      <div style={styles.header}>
-        <span style={styles.title}>
-          Security Findings
+    <div
+      style={{
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "10px",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* ── Section Header & Filters ───────────────────── */}
+      <div
+        style={{
+          padding: "20px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "16px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <h2
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontSize: "14px",
+              color: "var(--text-primary)",
+              letterSpacing: "0.01em",
+              margin: 0,
+            }}
+          >
+            Security Findings
+          </h2>
           {!loading && findings && (
-            <span style={{ color: "#8b949e", fontWeight: 400, fontSize: "13px", marginLeft: "8px" }}>
-              ({sortedFindings.length}{filter !== "ALL" ? ` ${filter.toLowerCase()}` : ""})
-            </span>
-          )}
-        </span>
-        <div style={styles.filterGroup}>
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setFilter(opt)}
+            <div
               style={{
-                ...styles.filterBtn,
-                ...(filter === opt ? styles.filterBtnActive : {}),
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-secondary)",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 500,
+                fontSize: "12px",
+                borderRadius: "6px",
+                padding: "2px 8px",
               }}
             >
-              {opt === "ALL" ? "All" : opt.charAt(0) + opt.slice(1).toLowerCase()}
-            </button>
-          ))}
+              {sortedFindings.length}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {FILTER_OPTIONS.map((opt) => {
+            const isActive = filter === opt;
+            return (
+              <button
+                key={opt}
+                onClick={() => setFilter(opt)}
+                style={{
+                  background: isActive ? "var(--accent-muted)" : "var(--bg-elevated)",
+                  border: `1px solid ${isActive ? "var(--accent)" : "var(--border-subtle)"}`,
+                  color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                  borderRadius: "6px",
+                  padding: "6px 14px",
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 500,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  transition: "background 150ms ease, border-color 150ms ease, color 150ms ease",
+                }}
+              >
+                {opt === "ALL" ? "All" : opt.charAt(0) + opt.slice(1).toLowerCase()}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Table */}
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
+      {/* ── Table ────────────────────────────────────────── */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
-            <tr>
+            <tr
+              style={{
+                background: "var(--bg-base)",
+                borderBottom: "1px solid var(--border-default)",
+                borderTop: "1px solid var(--border-default)",
+              }}
+            >
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  style={{
-                    ...styles.th,
-                    ...(hoveredHeader === col.key ? styles.thHover : {}),
-                  }}
                   onClick={() => handleSort(col.sortKey)}
-                  onMouseEnter={() => setHoveredHeader(col.key)}
-                  onMouseLeave={() => setHoveredHeader(null)}
+                  style={{
+                    padding: "10px 16px",
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 500,
+                    fontSize: "11px",
+                    color: "var(--text-tertiary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    cursor: "pointer",
+                    userSelect: "none",
+                    whiteSpace: "nowrap",
+                    textAlign: col.key === "severity" ? "center" : "left",
+                  }}
                 >
                   {col.label}
                   {sortConfig.key === col.sortKey && (
-                    <span style={styles.sortArrow}>
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    <span style={{ color: "var(--accent)", marginLeft: "4px", fontSize: "10px" }}>
+                      {sortConfig.direction === "asc" ? "↑" : "↓"}
                     </span>
                   )}
                 </th>
@@ -301,40 +259,131 @@ export default function FindingsTable({ findings, loading }) {
           </thead>
           <tbody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                  <td colSpan={5} style={{ padding: "12px 16px" }}>
+                    <div
+                      style={{
+                        height: "20px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: "4px",
+                        opacity: 0.5,
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))
             ) : sortedFindings.length === 0 ? (
               <tr>
-                <td colSpan={5} style={styles.empty}>
-                  🔒 No findings {filter !== "ALL" ? `with ${filter.toLowerCase()} severity` : "to display"}
+                <td colSpan={5} style={{ borderBottom: "none" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: "200px",
+                    }}
+                  >
+                    <ShieldOutlineIcon />
+                    <div
+                      style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontWeight: 500,
+                        fontSize: "14px",
+                        color: "var(--text-secondary)",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      No findings detected
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontWeight: 400,
+                        fontSize: "12px",
+                        color: "var(--text-tertiary)",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Your codebase is clean
+                    </div>
+                  </div>
                 </td>
               </tr>
             ) : (
               sortedFindings.map((finding, idx) => (
                 <tr
                   key={finding.id || idx}
-                  style={{
-                    ...styles.row,
-                    ...(hoveredRow === idx ? styles.rowHover : {}),
-                  }}
                   onMouseEnter={() => setHoveredRow(idx)}
                   onMouseLeave={() => setHoveredRow(null)}
+                  style={{
+                    background: hoveredRow === idx ? "var(--bg-hover)" : "var(--bg-surface)",
+                    borderBottom: "1px solid var(--border-subtle)",
+                    transition: "background 150ms ease",
+                  }}
                 >
-                  <td style={styles.td}>
-                    <span style={styles.filePath}>
-                      {finding.file_path}:{finding.line_number}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    <span style={styles.ruleId}>{finding.rule_id}</span>
-                  </td>
-                  <td style={{ ...styles.td, maxWidth: "320px" }}>
-                    {truncate(finding.message, 80)}
-                  </td>
-                  <td style={styles.td}>
-                    {finding.cwe || "—"}
-                  </td>
-                  <td style={styles.td}>
+                  {/* SEVERITY */}
+                  <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
                     <SeverityBadge severity={finding.severity} />
+                  </td>
+
+                  {/* FILE */}
+                  <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                    <div
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: "12px",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {finding.file_path}
+                      <span style={{ color: "var(--text-tertiary)" }}>
+                        :{finding.line_number}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* RULE */}
+                  <td style={{ padding: "12px 16px", verticalAlign: "top", maxWidth: "250px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: "11px",
+                        color: "var(--text-tertiary)",
+                      }}
+                      title={finding.rule_id}
+                    >
+                      {truncate(finding.rule_id, 40)}
+                    </div>
+                  </td>
+
+                  {/* MESSAGE */}
+                  <td style={{ padding: "12px 16px", verticalAlign: "top", maxWidth: "350px" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: "13px",
+                        color: "var(--text-primary)",
+                        lineHeight: 1.4,
+                      }}
+                      title={finding.message}
+                    >
+                      {truncate(finding.message, 70)}
+                    </div>
+                  </td>
+
+                  {/* CWE */}
+                  <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                    <div
+                      style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: "12px",
+                        color: "var(--text-tertiary)",
+                      }}
+                    >
+                      {finding.cwe || "—"}
+                    </div>
                   </td>
                 </tr>
               ))

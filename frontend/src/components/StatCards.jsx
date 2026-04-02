@@ -3,131 +3,99 @@
  * SAST Pipeline — StatCards Component
  * Author: Mohamed Adhnaan J M | BYTEAEGIS (byteaegis.in)
  *
- * Displays 4 summary stat cards: Total, Critical, High, Files.
- * Shows skeleton placeholders while loading.
+ * Four summary metric cards with top accent lines.
  * ═══════════════════════════════════════════════════════════════
  */
 
 import React from "react";
 
-const styles = {
-  container: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "16px",
-    marginBottom: "24px",
-  },
-  card: {
-    background: "linear-gradient(135deg, #161b22 0%, #1c2333 100%)",
-    border: "1px solid #30363d",
-    borderRadius: "12px",
-    padding: "24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
-    cursor: "default",
-    position: "relative",
-    overflow: "hidden",
-  },
-  cardHover: {
-    transform: "translateY(-2px)",
-    boxShadow: "0 8px 25px rgba(0,0,0,0.3)",
-  },
-  label: {
-    fontSize: "13px",
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    color: "#8b949e",
-  },
-  value: {
-    fontSize: "36px",
-    fontWeight: 700,
-    lineHeight: 1,
-    fontFamily: "'SF Mono', 'Cascadia Code', monospace",
-  },
-  indicator: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "3px",
-    borderRadius: "12px 12px 0 0",
-  },
-  skeleton: {
-    background: "linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%)",
-    backgroundSize: "200% 100%",
-    animation: "shimmer 1.5s ease-in-out infinite",
-    borderRadius: "6px",
-    height: "36px",
-    width: "80px",
-  },
-  skeletonLabel: {
-    background: "linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%)",
-    backgroundSize: "200% 100%",
-    animation: "shimmer 1.5s ease-in-out infinite",
-    borderRadius: "4px",
-    height: "14px",
-    width: "100px",
-  },
-};
-
-// Inject keyframes for shimmer animation
-const shimmerKeyframes = `
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-`;
-
 const CARDS = [
   {
     key: "total",
-    label: "Total Findings",
+    label: "TOTAL FINDINGS",
     propName: "total",
-    color: "#58a6ff",
-    activeColor: "#58a6ff",
-    alwaysActive: true,
+    accentColor: "var(--accent)",
+    valueColorWhenActive: null,
+    subLabel: "across all scans",
   },
   {
     key: "critical",
-    label: "Critical",
+    label: "CRITICAL",
     propName: "critical",
-    color: "#30363d",
-    activeColor: "#f85149",
-    alwaysActive: false,
+    accentColor: "var(--red-border)",
+    valueColorWhenActive: "var(--red-text)",
+    subLabel: "require immediate fix",
   },
   {
     key: "high",
-    label: "High",
+    label: "HIGH",
     propName: "high",
-    color: "#30363d",
-    activeColor: "#d29922",
-    alwaysActive: false,
+    accentColor: "var(--amber-border)",
+    valueColorWhenActive: "var(--amber-text)",
+    subLabel: "fix in current sprint",
   },
   {
     key: "files",
-    label: "Files Affected",
+    label: "FILES AFFECTED",
     propName: "filesAffected",
-    color: "#58a6ff",
-    activeColor: "#58a6ff",
-    alwaysActive: true,
+    accentColor: "var(--accent)",
+    valueColorWhenActive: null,
+    subLabel: "unique source files",
   },
 ];
 
-function StatCard({ label, value, color, activeColor, isActive, loading }) {
-  const [hovered, setHovered] = React.useState(false);
-
-  const indicatorColor = isActive ? activeColor : color;
-  const valueColor = isActive ? activeColor : "#e6edf3";
-
+function StatCard({ label, value, accentColor, valueColor, subLabel, loading }) {
   if (loading) {
     return (
-      <div style={styles.card}>
-        <div style={{ ...styles.indicator, background: "#30363d" }} />
-        <div style={styles.skeletonLabel} />
-        <div style={styles.skeleton} />
+      <div
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-subtle)",
+          borderRadius: "10px",
+          padding: "24px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "2px",
+            background: "var(--border-subtle)",
+          }}
+        />
+        <div
+          style={{
+            height: "13px",
+            width: "100px",
+            background: "var(--bg-elevated)",
+            borderRadius: "4px",
+            opacity: 0.5,
+            marginBottom: "12px",
+          }}
+        />
+        <div
+          style={{
+            height: "36px",
+            width: "60px",
+            background: "var(--bg-elevated)",
+            borderRadius: "4px",
+            opacity: 0.5,
+            marginBottom: "8px",
+          }}
+        />
+        <div
+          style={{
+            height: "11px",
+            width: "80px",
+            background: "var(--bg-elevated)",
+            borderRadius: "4px",
+            opacity: 0.5,
+          }}
+        />
       </div>
     );
   }
@@ -135,18 +103,65 @@ function StatCard({ label, value, color, activeColor, isActive, loading }) {
   return (
     <div
       style={{
-        ...styles.card,
-        ...(hovered ? styles.cardHover : {}),
-        borderColor: hovered ? indicatorColor : "#30363d",
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "10px",
+        padding: "24px",
+        position: "relative",
+        overflow: "hidden",
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ ...styles.indicator, background: indicatorColor }} />
-      <span style={styles.label}>{label}</span>
-      <span style={{ ...styles.value, color: valueColor }}>
+      {/* Top accent line */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "2px",
+          background: accentColor,
+        }}
+      />
+
+      {/* Label */}
+      <div
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 500,
+          fontSize: "11px",
+          letterSpacing: "0.08em",
+          color: "var(--text-secondary)",
+          textTransform: "uppercase",
+          marginBottom: "12px",
+        }}
+      >
+        {label}
+      </div>
+
+      {/* Value */}
+      <div
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 600,
+          fontSize: "36px",
+          lineHeight: 1,
+          color: valueColor || "var(--text-primary)",
+          marginBottom: "8px",
+        }}
+      >
         {typeof value === "number" ? value.toLocaleString() : value}
-      </span>
+      </div>
+
+      {/* Sub-label */}
+      <div
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: "11px",
+          color: "var(--text-tertiary)",
+        }}
+      >
+        {subLabel}
+      </div>
     </div>
   );
 }
@@ -155,25 +170,32 @@ export default function StatCards({ total, critical, high, filesAffected, loadin
   const values = { total, critical, high, filesAffected };
 
   return (
-    <>
-      <style>{shimmerKeyframes}</style>
-      <div style={styles.container}>
-        {CARDS.map((card) => {
-          const val = values[card.propName] || 0;
-          const isActive = card.alwaysActive || val > 0;
-          return (
-            <StatCard
-              key={card.key}
-              label={card.label}
-              value={val}
-              color={card.color}
-              activeColor={card.activeColor}
-              isActive={isActive}
-              loading={loading}
-            />
-          );
-        })}
-      </div>
-    </>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: "16px",
+      }}
+    >
+      {CARDS.map((card) => {
+        const val = values[card.propName] || 0;
+        const valueColor =
+          card.valueColorWhenActive && val > 0
+            ? card.valueColorWhenActive
+            : null;
+
+        return (
+          <StatCard
+            key={card.key}
+            label={card.label}
+            value={val}
+            accentColor={card.accentColor}
+            valueColor={valueColor}
+            subLabel={card.subLabel}
+            loading={loading}
+          />
+        );
+      })}
+    </div>
   );
 }

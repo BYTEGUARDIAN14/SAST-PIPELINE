@@ -1,0 +1,106 @@
+/* ═══════════════════════════════════════════════════════════════
+   SAST Pipeline — Design System
+   Refined Dark Enterprise aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── CSS Custom Properties ────────────────────────────────── */
+:root {
+  /* Background layers (darkest → lightest) */
+  --bg-base:        #0A0C0F;
+  --bg-surface:     #111318;
+  --bg-elevated:    #181C23;
+  --bg-hover:       #1E2330;
+
+  /* Borders */
+  --border-subtle:  #1E2330;
+  --border-default: #252C3A;
+  --border-focus:   #3A4459;
+
+  /* Text */
+  --text-primary:   #E8EAF0;
+  --text-secondary: #8B93A7;
+  --text-tertiary:  #4E5668;
+  --text-inverse:   #0A0C0F;
+
+  /* Semantic: Red */
+  --red-bg:         #1C0F0F;
+  --red-border:     #6B1F1F;
+  --red-text:       #F28B82;
+  --red-badge-bg:   #3D1515;
+  --red-badge-text: #F28B82;
+
+  /* Semantic: Amber */
+  --amber-bg:       #1A1200;
+  --amber-border:   #6B4F00;
+  --amber-text:     #F5C842;
+  --amber-badge-bg: #362800;
+  --amber-badge-text:#F5C842;
+
+  /* Semantic: Blue */
+  --blue-bg:        #0A1628;
+  --blue-border:    #1A3A6B;
+  --blue-text:      #6BA3E8;
+  --blue-badge-bg:  #0F2040;
+  --blue-badge-text:#6BA3E8;
+
+  /* Semantic: Green */
+  --green-bg:       #091510;
+  --green-border:   #1A4A2A;
+  --green-text:     #5DB87A;
+  --green-badge-bg: #0F2A1A;
+  --green-badge-text:#5DB87A;
+
+  /* Accent */
+  --accent:         #4A7CFF;
+  --accent-muted:   #1A2A4A;
+}
+
+/* ── CSS Reset ────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Body ─────────────────────────────────────────────────── */
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar Styling ────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-elevated);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-focus);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) var(--bg-elevated);
+}
+
+/* ── Keyframes ────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.25); }
+}
