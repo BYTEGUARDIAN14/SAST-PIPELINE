@@ -7,7 +7,6 @@
 #   frontend — React Dashboard via nginx (port 3000)
 # ═══════════════════════════════════════════════════════════════
 
-version: "3.9"
 
 services:
   backend:
