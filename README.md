@@ -793,7 +793,7 @@ After `docker compose up`, the services are available at:
 
 ### 5. GitHub Actions Configuration
 
-To connect GitHub Actions to your running Flask API, you need to add secrets to your GitHub repository.
+To connect GitHub Actions to your running Flask API, you need to add secrets to your GitHub repository...
 
 1. Go to your repository on GitHub
 1. Click **Settings** → **Secrets and variables** → **Actions**
